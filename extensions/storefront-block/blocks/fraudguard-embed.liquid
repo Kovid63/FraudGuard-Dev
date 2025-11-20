@@ -1,0 +1,574 @@
+{% schema %}
+{
+  "name": "FraudGuard Protection",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable_protection",
+      "label": "Enable Access Protection",
+      "default": true
+    }
+  ]
+}
+{% endschema %}
+
+<style>
+  .fraudguard-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  
+  .fraudguard-modal.active {
+    display: flex;
+  }
+  
+  .fraudguard-modal-content {
+    background: white;
+    padding: 48px 40px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 540px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+  }
+  
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  
+  .fraudguard-modal-logo {
+    width: 70px;
+    height: auto;
+    margin: 0 auto 32px;
+    display: block;
+  }
+  
+  .fraudguard-modal h2 {
+    font-size: 32px;
+    color: #1a202c;
+    margin: 0 0 16px 0;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  
+  .fraudguard-modal p {
+    font-size: 16px;
+    color: #475569;
+    margin: 0 0 20px 0;
+    line-height: 1.6;
+  }
+
+  .fraudguard-modal-subtitle {
+    font-size: 15px;
+    color: #475569;
+    margin: 0 0 28px 0;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+  
+  .fraudguard-modal-close {
+    background: #0c2752ff;
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 12px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .fraudguard-modal-close:hover {
+    background: #1e3a5f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(12, 39, 82, 0.3);
+  }
+
+  .fraudguard-modal-close:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #0c2752ff;
+    transform: none;
+  }
+
+  .fraudguard-error {
+    color: #dc2626;
+    font-size: 14px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #fee2e2;
+    border-radius: 8px;
+    border-left: 3px solid #dc2626;
+    text-align: left;
+  }
+
+  .fraudguard-success {
+    color: #16a34a;
+    font-size: 14px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #dcfce7;
+    border-radius: 8px;
+    border-left: 3px solid #16a34a;
+    text-align: left;
+  }
+
+  .fraudguard-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .fraudguard-email-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 15px;
+    margin-bottom: 0;
+    box-sizing: border-box;
+    background: #f8fafc;
+    color: #1a202c;
+    transition: all 0.2s;
+  }
+
+  .fraudguard-email-input::placeholder {
+    color: #94a3b8;
+  }
+
+  .fraudguard-email-input:focus {
+    outline: none;
+    border-color: #0c2752ff;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(12, 39, 82, 0.1);
+  }
+
+  .fraudguard-info-text {
+    font-size: 14px;
+    color: #64748b;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .fraudguard-form-container {
+    margin: 0 auto;
+  }
+
+  @media (max-width: 600px) {
+    .fraudguard-modal-content {
+      padding: 36px 28px;
+      border-radius: 12px;
+    }
+
+    .fraudguard-modal h2 {
+      font-size: 24px;
+    }
+
+    .fraudguard-modal p,
+    .fraudguard-modal-subtitle {
+      font-size: 15px;
+    }
+
+    .fraudguard-modal-logo {
+      width: 60px;
+      margin-bottom: 24px;
+    }
+  }
+</style>
+
+<div class="fraudguard-protection" data-fraudguard-embed>
+  
+  <!-- Access Restricted Modal -->
+  <div class="fraudguard-modal" id="fraudguardModal">
+    <div class="fraudguard-modal-content">
+      <img src="{{ 'logo.png' | asset_url }}" alt="Store Logo" class="fraudguard-modal-logo" width="70" height="70">
+      
+      <h2>Access Restricted</h2>
+      <p>For security reasons, access to this store is currently limited.</p>
+      
+      <p class="fraudguard-modal-subtitle">If you believe this is a mistake, please verify your email below:</p>
+      
+      <div class="fraudguard-form-container">
+        <form id="fraudguardVerifyForm" style="margin-bottom: 0;">
+          <input 
+            type="email" 
+            id="fraudguardEmailInput"
+            class="fraudguard-email-input"
+            placeholder="Enter your email address" 
+            required
+          >
+          <div id="fraudguardMessage" style="min-height: 20px; margin-bottom: 0;"></div>
+          <button 
+            type="submit"
+            id="fraudguardVerifyBtn"
+            class="fraudguard-modal-close"
+          >
+            Verify Access
+          </button>
+        </form>
+      </div>
+      
+      <p class="fraudguard-info-text">
+        Need help? Please contact the store for assistance.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      console.log('FraudGuard Protection Initialized');
+      
+      // Configuration
+      const API_HOST_FROM_SETTINGS = '{{ block.settings.api_host }}';
+      
+      const CONFIG = {
+        apiHost: API_HOST_FROM_SETTINGS && API_HOST_FROM_SETTINGS.trim() !== '' 
+          ? API_HOST_FROM_SETTINGS 
+          : 'https://fraudguard-dev.vercel.app',
+        shopDomain: '{{ shop.permanent_domain }}',
+        enabled: {% if block.settings.enable_protection %}true{% else %}false{% endif %}
+      };
+
+      console.log('Config:', CONFIG);
+      
+      // LocalStorage Token Manager
+      const TokenManager = {
+        TOKEN_KEY: 'fraudguard_bypass_token',
+        TIMESTAMP_KEY: 'fraudguard_token_timestamp',
+        EXPIRY_HOURS: 24,
+
+        // Store token in localStorage with timestamp
+        setToken: function(token) {
+          try {
+            const timestamp = Date.now();
+            localStorage.setItem(this.TOKEN_KEY, token);
+            localStorage.setItem(this.TIMESTAMP_KEY, timestamp.toString());
+            console.log('Token stored in localStorage');
+          } catch (error) {
+            console.error('Failed to store token:', error);
+          }
+        },
+
+        // Get token from localStorage (returns null if expired)
+        getToken: function() {
+          try {
+            const token = localStorage.getItem(this.TOKEN_KEY);
+            const timestamp = localStorage.getItem(this.TIMESTAMP_KEY);
+
+            if (!token || !timestamp) {
+              return null;
+            }
+
+            // Check if token has expired (24 hours)
+            const tokenAge = Date.now() - parseInt(timestamp);
+            const expiryTime = this.EXPIRY_HOURS * 60 * 60 * 1000; // 24 hours in milliseconds
+
+            if (tokenAge > expiryTime) {
+              console.log('Token expired (24 hours), clearing...');
+              this.clearToken();
+              return null;
+            }
+
+            return token;
+          } catch (error) {
+            console.error('Failed to get token:', error);
+            return null;
+          }
+        },
+
+        // Check if valid token exists
+        hasValidToken: function() {
+          return this.getToken() !== null;
+        },
+
+        // Clear token from localStorage
+        clearToken: function() {
+          try {
+            localStorage.removeItem(this.TOKEN_KEY);
+            localStorage.removeItem(this.TIMESTAMP_KEY);
+            console.log('Token cleared from localStorage');
+          } catch (error) {
+            console.error('Failed to clear token:', error);
+          }
+        },
+
+        // Get remaining time until expiry (in seconds)
+        getTimeUntilExpiry: function() {
+          try {
+            const timestamp = localStorage.getItem(this.TIMESTAMP_KEY);
+            if (!timestamp) return 0;
+
+            const tokenAge = Date.now() - parseInt(timestamp);
+            const expiryTime = this.EXPIRY_HOURS * 60 * 60 * 1000;
+            const remaining = expiryTime - tokenAge;
+
+            return remaining > 0 ? Math.floor(remaining / 1000) : 0;
+          } catch (error) {
+            return 0;
+          }
+        }
+      };
+      
+      window.FraudGuard = {
+        enabled: CONFIG.enabled,
+        accessChecked: false,
+        isBlocked: false,
+        bypassToken: null,
+        
+        init: async function() {
+          if (!this.enabled) {
+            console.log('FraudGuard protection is disabled');
+            return;
+          }
+
+          console.log('Starting access verification...');
+          
+          // Check for existing bypass token from localStorage
+          const hasValidToken = await this.checkBypassToken();
+          if (hasValidToken) {
+            console.log('Valid bypass token found - access granted');
+            const remainingTime = TokenManager.getTimeUntilExpiry();
+            console.log(`Token expires in ${Math.floor(remainingTime / 3600)} hours`);
+            return;
+          }
+
+          // Perform IP verification
+          this.verifyIPAddress();
+          this.setupFormHandler();
+        },
+
+        // Check if user has a valid bypass token (JWT) from localStorage
+        async checkBypassToken() {
+          const token = TokenManager.getToken();
+          
+          if (!token) {
+            console.log('No token found in localStorage');
+            return false;
+          }
+
+          try {
+            // Verify token with backend
+            const apiUrl = `${CONFIG.apiHost}/api/access/verify-token`;
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                token: token,
+                shop: CONFIG.shopDomain
+              })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.valid) {
+              this.bypassToken = token;
+              console.log('JWT token verified successfully');
+              return true;
+            } else {
+              // Token is invalid or expired, remove it
+              console.log('JWT token invalid or expired:', data.message);
+              TokenManager.clearToken();
+              return false;
+            }
+          } catch (error) {
+            console.error('Token verification error:', error);
+            // If verification fails, remove token and proceed with IP check
+            TokenManager.clearToken();
+            return false;
+          }
+        },
+
+        // Verify IP address and country
+        async verifyIPAddress() {
+          try {
+            const apiUrl = `${CONFIG.apiHost}/api/access/verify-ip`;
+            const userAgent = navigator.userAgent;
+
+            console.log('Checking IP and location...');
+
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                shop: CONFIG.shopDomain,
+                userAgent: userAgent
+              })
+            });
+
+            const data = await response.json();
+            console.log('IP verification result:', data);
+
+            this.accessChecked = true;
+
+            if (data.success && data.allowed) {
+              // Access allowed - no action needed
+              console.log('Access allowed:', data.reason);
+              this.isBlocked = false;
+            } else if (data.blocked || !data.allowed) {
+              // Access blocked - show modal
+              console.log('Access restricted:', data.reason);
+              this.isBlocked = true;
+              this.showModal();
+            }
+
+          } catch (error) {
+            console.error('IP verification error:', error);
+            // Fail open - allow access if verification fails
+            console.log('Verification failed - allowing access by default');
+            this.isBlocked = false;
+          }
+        },
+
+        showModal: function() {
+          const modal = document.getElementById('fraudguardModal');
+          if (modal) {
+            modal.classList.add('active');
+          }
+        },
+
+        hideModal: function() {
+          const modal = document.getElementById('fraudguardModal');
+          if (modal) {
+            modal.classList.remove('active');
+          }
+        },
+
+        setupFormHandler: function() {
+          const self = this;
+          const form = document.getElementById('fraudguardVerifyForm');
+
+          if (!form) return;
+
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await self.verifyEmail();
+          });
+        },
+
+        async verifyEmail() {
+          const emailInput = document.getElementById('fraudguardEmailInput');
+          const verifyBtn = document.getElementById('fraudguardVerifyBtn');
+          
+          const email = emailInput.value;
+          
+          if (!email) {
+            this.showMessage('Please enter a valid email address', 'error');
+            return;
+          }
+
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            this.showMessage('Please enter a valid email address', 'error');
+            return;
+          }
+
+          // Disable button and show loading
+          verifyBtn.disabled = true;
+          verifyBtn.innerHTML = '<span class="fraudguard-spinner"></span>Verifying...';
+
+          try {
+            const apiUrl = `${CONFIG.apiHost}/api/access/verify-email`;
+
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: email,
+                shop: CONFIG.shopDomain
+              })
+            });
+
+            const data = await response.json();
+            console.log('Email verification result:', data);
+
+            if (response.ok && data.verified) {
+              // Success - email verified, store token in localStorage
+              if (data.bypassToken) {
+                TokenManager.setToken(data.bypassToken);
+                this.bypassToken = data.bypassToken;
+                console.log('Bypass token stored successfully (valid for 24 hours)');
+              }
+              
+              this.showMessage('✓ Access granted! Redirecting...', 'success');
+              
+              setTimeout(() => {
+                this.hideModal();
+                // Clear the email input
+                emailInput.value = '';
+              }, 1500);
+            } else {
+              // Email not in allowlist
+              this.showMessage(data.message || 'Email not recognized. Please contact store support for assistance.', 'error');
+              verifyBtn.disabled = false;
+              verifyBtn.innerHTML = 'Verify Access';
+            }
+          } catch (error) {
+            console.error('Verification error:', error);
+            this.showMessage('Unable to verify. Please check your connection and try again.', 'error');
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = 'Verify Access';
+          }
+        },
+
+        showMessage: function(message, type) {
+          const messageDiv = document.getElementById('fraudguardMessage');
+          if (messageDiv) {
+            messageDiv.innerHTML = `<div class="fraudguard-${type}">${message}</div>`;
+          }
+        }
+      };
+      
+      // Initialize when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          window.FraudGuard.init();
+        });
+      } else {
+        window.FraudGuard.init();
+      }
+    })();
+  </script>
+</div>

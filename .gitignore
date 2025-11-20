@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# typescript build info
+*.tsbuildinfo
+
+# tailwind css JIT cache (optional)
+.tailwindcache/
+
+# environment variables
+.env.local
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+old.env
+.env.new
+shopify.app.toml.dev
+shopify.app.toml.prod
+shopify.app.toml.dev.prod
+
+pages/api/webhooks/order-create-old.js
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+bun.lockb
+
+pages/ocr.jsx
+pages/api/shopify-check.js
+.vercel
+config.zip
+shopify.app.toml
