@@ -99,59 +99,59 @@ const ConfirmDeleteModal = ({ rule, onConfirm, onCancel }) => {
 /**
  * CustomRule Component Definition
  */
-const CustomRule = ({ rule, onToggle, onDelete, onEdit }) => {
-  // Simple Toggle Switch implementation within the rule display
-  const RuleToggle = () => (
-    <button
-      onClick={onToggle} // Correctly uses the onToggle prop
-      className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer 
-        transition-colors ease-in-out duration-300 
-        ${rule.isEnabled ? "bg-black" : "bg-gray-200"}
-      `}
-      aria-checked={rule.isEnabled}
-      role="switch"
-    >
-      <span
-        aria-hidden="true"
-        className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform 
-          transition-transform ease-in-out duration-300
-          ${rule.isEnabled ? "translate-x-5" : "translate-x-0"}
-        `}
-      />
-    </button>
-  );
+// const CustomRule = ({ rule, onToggle, onDelete, onEdit }) => {
+//   // Simple Toggle Switch implementation within the rule display
+//   const RuleToggle = () => (
+//     <button
+//       onClick={onToggle} // Correctly uses the onToggle prop
+//       className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer
+//         transition-colors ease-in-out duration-300
+//         ${rule.isEnabled ? "bg-black" : "bg-gray-200"}
+//       `}
+//       aria-checked={rule.isEnabled}
+//       role="switch"
+//     >
+//       <span
+//         aria-hidden="true"
+//         className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform
+//           transition-transform ease-in-out duration-300
+//           ${rule.isEnabled ? "translate-x-5" : "translate-x-0"}
+//         `}
+//       />
+//     </button>
+//   );
 
-  return (
-    <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
-      {/* Rule Details and Toggle (Left Side) */}
-      <div className="flex items-center space-x-4">
-        <RuleToggle />
-        <div className="pr-4">
-          <h3 className="text-base font-medium text-gray-800">{rule.name}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{rule.condition}</p>
-        </div>
-      </div>
+//   return (
+//     <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
+//       {/* Rule Details and Toggle (Left Side) */}
+//       <div className="flex items-center space-x-4">
+//         <RuleToggle />
+//         <div className="pr-4">
+//           <h3 className="text-base font-medium text-gray-800">{rule.name}</h3>
+//           <p className="text-sm text-gray-500 mt-0.5">{rule.condition}</p>
+//         </div>
+//       </div>
 
-      {/* Action Buttons (Right Side) */}
-      <div className="flex items-center space-x-4 text-sm font-medium text-gray-500">
-        <button
-          onClick={() => onEdit(rule)} // Call the new onEdit handler
-          className="text-black transition-colors hover:bg-gray-100 rounded-md px-3 py-1"
-        >
-          Edit
-        </button>
+//       {/* Action Buttons (Right Side) */}
+//       <div className="flex items-center space-x-4 text-sm font-medium text-gray-500">
+//         <button
+//           onClick={() => onEdit(rule)} // Call the new onEdit handler
+//           className="text-black transition-colors hover:bg-gray-100 rounded-md px-3 py-1"
+//         >
+//           Edit
+//         </button>
 
-        <button
-          onClick={() => onDelete(rule)} // Calls handler to open modal with rule object
-          className="text-red-500 hover:text-red-700 transition-colors hover:bg-gray-100 rounded-md px-3 py-1"
-          aria-label={`Delete ${rule.name} rule`}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-    </div>
-  );
-};
+//         <button
+//           onClick={() => onDelete(rule)} // Calls handler to open modal with rule object
+//           className="text-red-500 hover:text-red-700 transition-colors hover:bg-gray-100 rounded-md px-3 py-1"
+//           aria-label={`Delete ${rule.name} rule`}
+//         >
+//           <Trash2 size={16} />
+//         </button>
+//       </div>
+//     </div>
+//   );
+// };
 
 /**
  * ManageRuleModal Component Definition (Handles both Add and Edit)
@@ -402,6 +402,45 @@ export default function AutomationPage() {
   const [lowRiskThreshold, setLowRiskThreshold] = useState(40);
   const [isHighRiskCancelled, setIsHighRiskCancelled] = useState(true);
   const [highRiskThreshold, setHighRiskThreshold] = useState(70);
+  
+
+  const router = useRouter();
+  useEffect(() => {
+    console.debug(
+      "router.isReady",
+      router.isReady,
+      "router.query",
+      router.query
+    );
+  }, [router.isReady, router.query]);
+
+  const { shop, host } = router.query;
+  const shopDomain =
+    typeof shop === "string" ? shop : Array.isArray(shop) ? shop[0] : undefined;
+
+  console.log("AutomationPage shopDomain:", shopDomain);
+
+  useEffect(() => {
+    if (!shopDomain) return;
+
+    async function loadSettings() {
+      try {
+        const res = await fetch(`/api/automation/settings?shop=${shopDomain}`);
+        const data = await res.json();
+        console.log("loaded automation settings", data);
+        if (!data) return;
+        const saved = data;
+
+        setIsLowRiskApproved(saved.isLowRiskApproved);
+        setLowRiskThreshold(saved.lowRiskThreshold);
+        setIsHighRiskCancelled(saved.isHighRiskCancelled);
+        setHighRiskThreshold(saved.highRiskThreshold);
+      } catch (err) {
+        console.log("failed to load automation settings", err);
+      }
+    }
+    loadSettings();
+  }, [shopDomain]);
 
   // ✅ AUTO-SAVE: runs whenever any setting changes
   useEffect(() => {
@@ -430,11 +469,6 @@ export default function AutomationPage() {
   // State for Post-Cancellation Actions
   const [autoRestock, setAutoRestock] = useState(true);
   const [sendCancellationEmail, setSendCancellationEmail] = useState(true);
-
-  // normalize shop from router query
-  const { shop, host } = useRouter().query;
-  const shopDomain =
-    typeof shop === "string" ? shop : Array.isArray(shop) ? shop[0] : undefined;
 
   // State for Hold Timeout
   const [isHoldTimeoutEnabled, setIsHoldTimeoutEnabled] = useState(true);
@@ -507,18 +541,6 @@ export default function AutomationPage() {
   const [reminderFrequency, setReminderFrequency] = useState(2);
   const [maximumReminders, setMaximumReminders] = useState(3);
 
-  // -------------------------------------------------------------------
-  // CUSTOM RULES STATE & HANDLERS
-  // -------------------------------------------------------------------
-  const [customRules, setCustomRules] = useState([
-    {
-      id: 1,
-      name: "Country/Region",
-      condition: 'Country equals "BRAZIL"',
-      isEnabled: true,
-    },
-  ]);
-
   // Modals/Management States
   const [ruleToDelete, setRuleToDelete] = useState(null);
   const [ruleToEdit, setRuleToEdit] = useState(null); // <--- Rule being edited
@@ -529,58 +551,62 @@ export default function AutomationPage() {
   const [autoApproveVerifiedLoading, setAutoApproveVerifiedLoading] =
     useState(false);
 
- const handleAutoActionChange = async (action, value) => {
-  console.log("[AUTO ACTION] Toggling:", action, "New Value:", value);
+  const handleAutoActionChange = async (action, value) => {
+    console.log("[AUTO ACTION] Toggling:", action, "New Value:", value);
 
-  if (!shop || typeof shop !== 'string') return;
-  let setLoadingFn;
+    if (!shop || typeof shop !== "string") return;
+    let setLoadingFn;
 
-  if (action === 'autoCancelUnverified') setLoadingFn = setAutoCancelUnverifiedLoading;
-  else if (action === 'autoApproveVerified') setLoadingFn = setAutoApproveVerifiedLoading;
-  else setLoadingFn = () => {};
+    if (action === "autoCancelUnverified")
+      setLoadingFn = setAutoCancelUnverifiedLoading;
+    else if (action === "autoApproveVerified")
+      setLoadingFn = setAutoApproveVerifiedLoading;
+    else setLoadingFn = () => {};
 
-  setLoadingFn(true);
+    setLoadingFn(true);
 
-  const prevValue =
-    action === 'autoCancelUnverified' ? autoCancelUnverified :
-    autoApproveVerified;
+    const prevValue =
+      action === "autoCancelUnverified"
+        ? autoCancelUnverified
+        : autoApproveVerified;
 
-  // Optimistic UI update
-  if (action === 'autoCancelUnverified') setAutoCancelUnverified(value);
-  else if (action === 'autoApproveVerified') setAutoApproveVerified(value);
+    // Optimistic UI update
+    if (action === "autoCancelUnverified") setAutoCancelUnverified(value);
+    else if (action === "autoApproveVerified") setAutoApproveVerified(value);
 
-  console.log("[AUTO ACTION] Sending to server:", {
-    settingType: "autoAction",
-    riskLevel: value,
-    actionType: action
-  });
-
-  try {
-    const res = await fetch('/api/settings/risk-settings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-shopify-shop-domain': shop
-      },
-      body: JSON.stringify({
-        settingType: 'autoAction',
-        riskLevel: value,
-        actionType: action,
-        shop
-      }),
+    console.log("[AUTO ACTION] Sending to server:", {
+      settingType: "autoAction",
+      riskLevel: value,
+      actionType: action,
     });
 
-    console.log("[AUTO ACTION] Server response:", await res.json());
-  } catch (err) {
-    console.error("[AUTO ACTION] Error:", err);
+    try {
+      const res = await fetch("/api/settings/risk-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-shopify-shop-domain": shop,
+        },
+        body: JSON.stringify({
+          settingType: "autoAction",
+          riskLevel: value,
+          actionType: action,
+          shop,
+        }),
+      });
 
-    // Rollback UI
-    if (action === 'autoCancelUnverified') setAutoCancelUnverified(prevValue);
-    else if (action === 'autoApproveVerified') setAutoApproveVerified(prevValue);
-  } finally {
-    setLoadingFn(false);
-  }
-};
+      console.log("[AUTO ACTION] Server response:", await res.json());
+    } catch (err) {
+      console.error("[AUTO ACTION] Error:", err);
+
+      // Rollback UI
+      if (action === "autoCancelUnverified") setAutoCancelUnverified(prevValue);
+      else if (action === "autoApproveVerified")
+        setAutoApproveVerified(prevValue);
+    } finally {
+      setLoadingFn(false);
+    }
+  };
 
   // normalize shop from router query
 
@@ -703,48 +729,6 @@ export default function AutomationPage() {
     setRuleToEdit(null);
   };
 
-  const handleSaveRule = (ruleData) => {
-    if (ruleToEdit) {
-      // 1. EDIT Logic
-      const updatedRules = customRules.map((r) =>
-        r.id === ruleToEdit.id
-          ? {
-              ...r,
-              name: ruleData.condition,
-              condition: formatRuleCondition(ruleData),
-            }
-          : r
-      );
-      setCustomRules(updatedRules);
-    } else {
-      // 2. ADD Logic
-      const newId =
-        customRules.length > 0 ? customRules[customRules.length - 1].id + 1 : 1;
-      const ruleToSave = {
-        id: newId,
-        name: ruleData.condition,
-        condition: formatRuleCondition(ruleData),
-        isEnabled: true,
-      };
-      setCustomRules((prev) => [...prev, ruleToSave]);
-    }
-    handleCloseManageModal();
-  };
-
-  const confirmDelete = (id) => {
-    setCustomRules(customRules.filter((rule) => rule.id !== id));
-    setRuleToDelete(null);
-  };
-
-  const toggleRule = (id) => {
-    setCustomRules(
-      customRules.map((rule) =>
-        rule.id === id ? { ...rule, isEnabled: !rule.isEnabled } : rule
-      )
-    );
-  };
-  // -------------------------------------------------------------------
-
   const CheckboxOption = ({ label, isChecked, onChange }) => (
     <label className="flex items-center text-sm text-gray-700 py-1 cursor-pointer">
       <input
@@ -843,7 +827,7 @@ export default function AutomationPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <Sidebar host={String(host)} shop={String(shop)} />
-      <main className="flex flex-col w-full max-w-[60vw] py-8 px-20 mx-auto">
+      <main className="flex flex-col w-full py-8 px-20">
         <Head>
           <title>Automation Settings</title>
         </Head>
@@ -870,7 +854,7 @@ export default function AutomationPage() {
 
         {/* Tabs */}
         <div
-          className="flex w-full border-b border-slate-200 mb-6 bg-black justify-around mt-4"
+          className="flex w-full max-w-6xl border-b border-slate-200 mb-6 bg-black justify-around mt-4"
           style={{
             backgroundColor: "rgb(241 245 249 / 1)",
             borderRadius: "0.5rem",
@@ -882,22 +866,10 @@ export default function AutomationPage() {
                 ? "bg-white px-20 m-1.5 rounded-lg shadow-md"
                 : "text-slate-600 hover:text-slate-800"
             }`}
-            onClick={() => setActiveTab("automated_actions")}
           >
             <CircleCheck size={20} className="mr-2" />
             Automated Actions
           </button>
-          {/* <button
-            className={`w-1/2 text-center flex items-center px-6 py-2 text-sm font-medium transition-colors justify-center ${
-              activeTab === "custom_rules"
-                ? "bg-white px-100 m-1.5 rounded-lg shadow-md"
-                : "text-slate-600 hover:text-slate-800"
-            }`}
-            onClick={() => setActiveTab("custom_rules")}
-          >
-            <TriangleAlert size={20} className="mr-2" />
-            Custom Rules
-          </button> */}
         </div>
 
         {/* --- CONTENT AREA START --- */}
@@ -1078,12 +1050,12 @@ export default function AutomationPage() {
                   <div className="pl-6 border-l-2 border-gray-300 ml-5">
                     {/* Verification Methods */}
                     <h4 className="text-sm font-semibold text-gray-800 mt-2 mb-2 ">
-                      Verification Methods
+                      Verification Method
                     </h4>
-                    <p className="text-xs text-gray-500 mb-2">
+                    {/* <p className="text-xs text-gray-500 mb-2">
                       Select which verification methods will trigger
                       auto-approval
-                    </p>
+                    </p> */}
                     <div className="space-y-1">
                       <CheckboxOption
                         label="Last 4-Digits Image"
@@ -1095,58 +1067,12 @@ export default function AutomationPage() {
                           }))
                         }
                       />
-                      {/* <CheckboxOption
-                        label="2FA Bank Statement"
-                        isChecked={verificationMethods.bankStatement}
-                        onChange={() =>
-                          setVerificationMethods((prev) => ({
-                            ...prev,
-                            bankStatement: !prev.bankStatement,
-                          }))
-                        }
-                      /> */}
-                      {/* <CheckboxOption
-                        label="SMS Verification"
-                        isChecked={verificationMethods.smsVerification}
-                        onChange={() =>
-                          setVerificationMethods((prev) => ({
-                            ...prev,
-                            smsVerification: !prev.smsVerification,
-                          }))
-                        }
-                      /> */}
                     </div>
 
-                    {/* Approval Logic
-                    <h4 className="text-sm font-semibold text-gray-800 mt-4 mb-2">
-                      Approval Logic
-                    </h4>
-
-                    <CustomSelect
-                      value={
-                        approvalLogic === "ANY"
-                          ? "Approve if ANY selected method is verified"
-                          : "Approve if ALL selected methods are verified"
-                      }
-                      onChange={(selectedText) => {
-                        // Convert the selected text back to the state value ('ANY' or 'ALL')
-                        if (selectedText.includes("ANY")) {
-                          setApprovalLogic("ANY");
-                        } else {
-                          setApprovalLogic("ALL");
-                        }
-                      }}
-                      options={[
-                        "Approve if ANY selected method is verified",
-                        "Approve only if ALL selected methods are verified",
-                      ]}
-                    />
-
                     <p className="text-xs text-gray-500 mt-1">
-                      Order will be approved if the customer verifies using
-                      {approvalLogic === "ANY" ? " any one" : " all"} of the
-                      selected methods
-                    </p> */}
+                      Order will be approved if the customer verifies using the
+                      selected method
+                    </p>
                   </div>
                 </div>
               )}
@@ -1247,89 +1173,6 @@ export default function AutomationPage() {
         )}
 
         {/* Content for Custom Rules Tab (Visible when activeTab is 'custom_rules') */}
-        {activeTab === "custom_rules" && (
-          <>
-            {/* 1. Top Information Note (Blue Box) */}
-            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800 mb-6">
-              <div className="flex items-start">
-                <span className="text-lg mr-2">ⓘ</span>
-                <span>
-                  <span className="font-semibold">Note:</span> Orders with
-                  FraudGuard risk score{" "}
-                  <span className="font-bold text-blue-900">40 or higher</span>{" "}
-                  and orders flagged as{" "}
-                  <span className="font-bold text-blue-900">
-                    Medium + High Risk by Shopify
-                  </span>{" "}
-                  are already automatically held.
-                </span>
-              </div>
-            </div>
-
-            {/* 2. Main Custom Rules Card */}
-            <div className="bg-white shadow-lg rounded-lg p-6 border border-gray-100 mb-8">
-              {/* Card Header (Title and Add Rule Button) */}
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center">
-                  <TriangleAlert size={20} className="mr-2 text-orange-500" />
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Custom Hold Rules
-                  </h2>
-                  <span className="text-gray-400 ml-2 cursor-pointer">ⓘ</span>
-                </div>
-                <button
-                  onClick={openAddRuleModal} // Linked to open the new modal
-                  className="bg-black text-white px-4 py-2 rounded-md text-sm font-medium flex items-center hover:bg-gray-800 transition-colors"
-                >
-                  <span className="text-xl mr-1">+</span> Add Rule
-                </button>
-              </div>
-
-              <p className="text-gray-500 text-sm mb-4">
-                Create custom rules to automatically hold orders for manual
-                review based on specific conditions.
-              </p>
-
-              {/* 3. List of Custom Rules */}
-              <div className="space-y-0.5 border border-gray-100 rounded-md">
-                <div className="px-4">
-                  {customRules.map((rule) => (
-                    <CustomRule
-                      key={rule.id}
-                      rule={rule}
-                      onToggle={() => toggleRule(rule.id)}
-                      onDelete={openDeleteModal} // Linked to open the delete confirmation modal
-                      onEdit={openEditModal} // Linked to open the edit modal
-                    />
-                  ))}
-                  {customRules.length === 0 && (
-                    <p className="text-gray-400 text-sm italic pt-4">
-                      No custom rules defined yet. Click "Add Rule" to begin.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* --- MODAL RENDERING --- */}
-        <ConfirmDeleteModal
-          rule={ruleToDelete}
-          onConfirm={confirmDelete}
-          onCancel={() => setRuleToDelete(null)}
-        />
-
-        {/* The Manage Rule Modal (Handles both Add and Edit) */}
-        <ManageRuleModal
-          isOpen={isAddRuleModalOpen || !!ruleToEdit}
-          onClose={handleCloseManageModal}
-          ruleState={ruleToEdit ? newRule : newRule}
-          ruleToEdit={ruleToEdit} // Pass the rule object if editing
-          onUpdate={handleNewRuleChange}
-          onSave={handleSaveRule}
-          CustomSelectComponent={CustomSelect}
-        />
       </main>
     </div>
   );

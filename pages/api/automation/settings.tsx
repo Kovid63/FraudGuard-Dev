@@ -1,53 +1,57 @@
-import clientPromise from "../../../lib/mongo"; // adjust path if needed
+import clientPromise from "../../../lib/mongo";
 
 export default async function handler(req, res) {
-    
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
   try {
     const client = await clientPromise;
     const db = client.db("fraudguard-dev");
 
-    const {
-      isLowRiskApproved,
-      lowRiskThreshold,
-      isHighRiskCancelled,
-      highRiskThreshold,
-      shop
-    } = req.body;
+    if (req.method === "GET") {
+      const shop = req.query.shop;
 
-    console.log("Automation settings updated:", {
-  isLowRiskApproved,
-  lowRiskThreshold,
-  isHighRiskCancelled,
-  highRiskThreshold,
-  shop
-});
+      if (!shop) {
+        return res.status(400).json({ error: "Shop is required" });
+      }
 
+      const settings = await db
+        .collection("automationSettings")
+        .findOne({ shop });
 
-    // You must send "shop" OR derive it from session
-    if (!shop) {
-      return res.status(400).json({ error: "Shop is required" });
+      return res.status(200).json(settings || {});
     }
 
-    await db.collection("automationSettings").updateOne(
-      { shop },
-      {
-        $set: {
-          isLowRiskApproved,
-          lowRiskThreshold,
-          isHighRiskCancelled,
-          highRiskThreshold,
-        },
-      },
-      { upsert: true }
-    );
+    // ------------------ POST (SAVE) ------------------
+    if (req.method === "POST") {
+      const {
+        isLowRiskApproved,
+        lowRiskThreshold,
+        isHighRiskCancelled,
+        highRiskThreshold,
+        shop,
+      } = req.body;
 
-    res.status(200).json({ success: true });
+      if (!shop) {
+        return res.status(400).json({ error: "Shop is required" });
+      }
+
+      await db.collection("automationSettings").updateOne(
+        { shop },
+        {
+          $set: {
+            isLowRiskApproved,
+            lowRiskThreshold,
+            isHighRiskCancelled,
+            highRiskThreshold,
+          },
+        },
+        { upsert: true }
+      );
+
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
-    console.error("Automation settings save failed:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Automation settings failed:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
