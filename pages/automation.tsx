@@ -402,7 +402,27 @@ export default function AutomationPage() {
   const [lowRiskThreshold, setLowRiskThreshold] = useState(40);
   const [isHighRiskCancelled, setIsHighRiskCancelled] = useState(true);
   const [highRiskThreshold, setHighRiskThreshold] = useState(70);
-  
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
+  // State for Post-Cancellation Actions
+  const [autoRestock, setAutoRestock] = useState(true);
+  const [sendCancellationEmail, setSendCancellationEmail] = useState(true);
+
+  // State for Hold Timeout
+  const [isHoldTimeoutEnabled, setIsHoldTimeoutEnabled] = useState(true);
+  const [timeoutDays, setTimeoutDays] = useState(7);
+  const [timeoutAction, setTimeoutAction] = useState(
+    "Auto-cancel after 7 days"
+  );
+
+  // State for Customer Verification
+  const [autoApproveVerified, setAutoApproveVerified] = useState(false);
+  const [autoCancelUnverified, setAutoCancelUnverified] = useState(false);
+  const [autoReminderEmails, setAutoReminderEmails] = useState(false);
+  const [activeTab, setActiveTab] = useState("automated_actions");
+
+    // State for nested Auto-Reminder settings
+  const [reminderFrequency, setReminderFrequency] = useState(2);
+  const [maximumReminders, setMaximumReminders] = useState(3);
 
   const router = useRouter();
   useEffect(() => {
@@ -423,39 +443,111 @@ export default function AutomationPage() {
   useEffect(() => {
     if (!shopDomain) return;
 
+    let mounted = true;
+
     async function loadSettings() {
       try {
-        const res = await fetch(`/api/automation/settings?shop=${shopDomain}`);
-        const data = await res.json();
-        console.log("loaded automation settings", data);
-        if (!data) return;
-        const saved = data;
+        // Load automation settings (thresholds, timeouts, email settings)
+        const automationRes = await fetch(
+          `/api/automation/settings?shop=${shopDomain}`
+        );
+        const automationData = await automationRes.json();
+        console.log("loaded automation settings", automationData);
 
-        setIsLowRiskApproved(saved.isLowRiskApproved);
-        setLowRiskThreshold(saved.lowRiskThreshold);
-        setIsHighRiskCancelled(saved.isHighRiskCancelled);
-        setHighRiskThreshold(saved.highRiskThreshold);
+        // Load risk-settings (auto approve/cancel verification settings, restock setting)
+        const riskRes = await fetch(
+          `/api/settings/risk-settings?shop=${shopDomain}`
+        );
+        const riskData = await riskRes.json();
+        console.log("loaded risk-settings", riskData);
+
+        if (!mounted) return;
+
+        // Set automation settings (thresholds)
+        if (automationData) {
+          setIsLowRiskApproved(automationData.isLowRiskApproved ?? true);
+          setLowRiskThreshold(automationData.lowRiskThreshold ?? 40);
+          setIsHighRiskCancelled(automationData.isHighRiskCancelled ?? true);
+          setHighRiskThreshold(automationData.highRiskThreshold ?? 70);
+
+          // Set Hold Timeout settings
+          setIsHoldTimeoutEnabled(automationData.isHoldTimeoutEnabled ?? true);
+          setTimeoutDays(automationData.timeoutDays ?? 7);
+
+          // Reconstruct timeoutAction from stored value
+          if (automationData.timeoutAction) {
+            const actionLabel =
+              automationData.timeoutAction === "approve"
+                ? `Auto-approve after ${automationData.timeoutDays ?? 7} days`
+                : `Auto-cancel after ${automationData.timeoutDays ?? 7} days`;
+            setTimeoutAction(actionLabel);
+          }
+
+          // Set email reminder settings
+          setAutoReminderEmails(automationData.autoReminderEmails ?? false);
+          setReminderFrequency(automationData.reminderFrequency ?? 2);
+          setMaximumReminders(automationData.maximumReminders ?? 3);
+        }
+
+        // Set verification and auto-action settings from risk-settings
+        if (riskData) {
+          setAutoApproveVerified(riskData.autoApproveVerified ?? false);
+          setAutoCancelUnverified(riskData.autoCancelUnverified ?? false);
+          setAutoRestock(riskData.autoRestockCancelledOrders ?? true);
+          setSendCancellationEmail(riskData.sendCancellationEmail ?? true);
+        }
       } catch (err) {
         console.log("failed to load automation settings", err);
+      } finally {
+        if (mounted) setHasLoadedSettings(true);
       }
     }
     loadSettings();
+
+    return () => {
+      mounted = false;
+    };
   }, [shopDomain]);
 
   // ✅ AUTO-SAVE: runs whenever any setting changes
   useEffect(() => {
+    // Don't auto-save defaults before we loaded settings from the server
+    if (!shopDomain || !hasLoadedSettings) return;
+
     async function saveSettings() {
-      await fetch("/api/automation/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isLowRiskApproved,
-          lowRiskThreshold,
-          isHighRiskCancelled,
-          highRiskThreshold,
-          shop,
-        }),
-      });
+      try {
+        // Normalize timeoutAction from label to value
+        const normalizeTimeoutAction = (label) => {
+          if (label.toLowerCase().includes("approve")) return "approve";
+          if (label.toLowerCase().includes("cancel")) return "cancel";
+          return null;
+        };
+
+        const normalizedTimeoutAction = normalizeTimeoutAction(timeoutAction);
+
+        await fetch("/api/automation/settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-shopify-shop-domain": shopDomain,
+          },
+          body: JSON.stringify({
+            isLowRiskApproved,
+            lowRiskThreshold,
+            isHighRiskCancelled,
+            highRiskThreshold,
+            isHoldTimeoutEnabled,
+            timeoutDays,
+            timeoutAction: normalizedTimeoutAction,
+            autoReminderEmails,
+            reminderFrequency,
+            maximumReminders,
+            shop: shopDomain,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to auto-save automation settings:", err);
+      }
     }
 
     saveSettings();
@@ -464,70 +556,17 @@ export default function AutomationPage() {
     lowRiskThreshold,
     isHighRiskCancelled,
     highRiskThreshold,
+    isHoldTimeoutEnabled,
+    timeoutDays,
+    timeoutAction,
+    autoReminderEmails,
+    reminderFrequency,
+    maximumReminders,
+    shopDomain,
+    hasLoadedSettings,
   ]);
 
-  // State for Post-Cancellation Actions
-  const [autoRestock, setAutoRestock] = useState(true);
-  const [sendCancellationEmail, setSendCancellationEmail] = useState(true);
-
-  // State for Hold Timeout
-  const [isHoldTimeoutEnabled, setIsHoldTimeoutEnabled] = useState(true);
-  const [timeoutDays, setTimeoutDays] = useState(7);
-  const [timeoutAction, setTimeoutAction] = useState(
-    "Auto-cancel after 7 days"
-  );
-
-  useEffect(() => {
-    if (!timeoutDays || !timeoutAction || !shopDomain) return;
-
-    const saveSettings = async () => {
-      try {
-        const normalizeTimeoutAction = (label) => {
-          if (label.toLowerCase().includes("approve")) return "approve";
-          if (label.toLowerCase().includes("cancel")) return "cancel";
-          return null;
-        };
-
-        const action = normalizeTimeoutAction(timeoutAction);
-
-        if (!action) {
-          console.error("Invalid timeoutAction value:", timeoutAction);
-          return;
-        }
-
-        const res = await fetch("/api/automation/timeout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-shopify-shop-domain": shopDomain,
-          },
-          body: JSON.stringify({
-            timeoutDays,
-            timeoutAction: action, // ✅ fixed
-            shop: shopDomain,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          console.error("Backend rejected:", err);
-          return;
-        }
-
-        console.log("Settings auto-saved ✅");
-      } catch (err) {
-        console.error("Auto-save failed ❌", err);
-      }
-    };
-
-    saveSettings();
-  }, [timeoutDays, timeoutAction, shopDomain]);
-
-  // State for Customer Verification
-  const [autoApproveVerified, setAutoApproveVerified] = useState(false);
-  const [autoCancelUnverified, setAutoCancelUnverified] = useState(false);
-  const [autoReminderEmails, setAutoReminderEmails] = useState(false);
-  const [activeTab, setActiveTab] = useState("automated_actions");
+  
 
   // State for nested Auto Approve settings
   const [verificationMethods, setVerificationMethods] = useState({
@@ -537,9 +576,7 @@ export default function AutomationPage() {
   });
   const [approvalLogic, setApprovalLogic] = useState("ANY"); // 'ANY' or 'ALL'
 
-  // State for nested Auto-Reminder settings
-  const [reminderFrequency, setReminderFrequency] = useState(2);
-  const [maximumReminders, setMaximumReminders] = useState(3);
+
 
   // Modals/Management States
   const [ruleToDelete, setRuleToDelete] = useState(null);
@@ -554,7 +591,12 @@ export default function AutomationPage() {
   const handleAutoActionChange = async (action, value) => {
     console.log("[AUTO ACTION] Toggling:", action, "New Value:", value);
 
-    if (!shop || typeof shop !== "string") return;
+    // Ensure we have the normalized shopDomain before saving
+    if (!shopDomain) {
+      console.warn("shopDomain not ready; skipping autoAction save");
+      return;
+    }
+
     let setLoadingFn;
 
     if (action === "autoCancelUnverified")
@@ -585,13 +627,13 @@ export default function AutomationPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-shopify-shop-domain": shop,
+          "x-shopify-shop-domain": shopDomain,
         },
         body: JSON.stringify({
           settingType: "autoAction",
           riskLevel: value,
           actionType: action,
-          shop,
+          shop: shopDomain,
         }),
       });
 
@@ -607,8 +649,6 @@ export default function AutomationPage() {
       setLoadingFn(false);
     }
   };
-
-  // normalize shop from router query
 
   const handleAutoRestockToggle = async (value) => {
     console.log("AUTO RESTOCK FRONTEND TOGGLE VALUE:", value);
@@ -640,39 +680,32 @@ export default function AutomationPage() {
     }
   };
 
-  useEffect(() => {
-    // ✅ Auto-save automation settings whenever these values change
-    if (reminderFrequency && maximumReminders) {
-      console.log("[Automation] Detected setting change:", {
-        reminderFrequency,
-        maximumReminders,
-        autoReminderEmails,
-      });
+  const handlePostCancellationToggle = async (value, actionType) => {
+    console.log(`${actionType} TOGGLE VALUE:`, value);
 
-      const saveSettings = async () => {
-        try {
-          console.log("[Automation] Saving automation settings to server...");
-          const res = await fetch("/api/automation/updateEmailSettings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              shop,
-              reminderFrequency,
-              maximumReminders,
-              autoReminderEmails,
-            }),
-          });
-
-          const data = await res.json();
-          console.log("[Automation] Server response:", data);
-        } catch (err) {
-          console.error("[Automation] Failed to save settings:", err);
-        }
-      };
-
-      saveSettings();
+    if (!shopDomain) {
+      console.warn("shop query not ready; skipping save for now");
+      return;
     }
-  }, [reminderFrequency, maximumReminders, autoReminderEmails]);
+
+    try {
+      await fetch("/api/settings/risk-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-shopify-shop-domain": shopDomain,
+        },
+        body: JSON.stringify({
+          settingType: "autoAction",
+          actionType: actionType,
+          riskLevel: value,
+          shop: shopDomain,
+        }),
+      });
+    } catch (err) {
+      console.error(`Failed to save ${actionType} setting:`, err);
+    }
+  };
 
   // State for rule data being edited or added
   const [newRule, setNewRule] = useState({
@@ -926,9 +959,10 @@ export default function AutomationPage() {
                 title="Send cancellation email"
                 description="Automatically notify customers when their order is cancelled"
                 isEnabled={sendCancellationEmail}
-                onToggle={() =>
-                  setSendCancellationEmail(!setSendCancellationEmail)
-                }
+                onToggle={() => {
+                  setSendCancellationEmail(!sendCancellationEmail);
+                  handlePostCancellationToggle(!sendCancellationEmail, "sendCancellationEmail");
+                }}
               />
 
               <div className="border-b border-gray-100 my-5"></div>

@@ -38,7 +38,7 @@ export default function Home() {
 
         const automationLink = AppLink.create(app, {
           label: 'Automation',
-          destination: `/?shop=${shop}&host=${host}` || `/automation?shop=${shop}&host=${host}`,
+          destination: `/automation?shop=${shop}&host=${host}` || `/automation?shop=${shop}&host=${host}`,
         });
 
 
