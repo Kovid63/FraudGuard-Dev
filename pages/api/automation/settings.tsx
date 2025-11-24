@@ -26,6 +26,12 @@ export default async function handler(req, res) {
         lowRiskThreshold,
         isHighRiskCancelled,
         highRiskThreshold,
+        isHoldTimeoutEnabled,
+        timeoutDays,
+        timeoutAction,
+        autoReminderEmails,
+        reminderFrequency,
+        maximumReminders,
         shop,
       } = req.body;
 
@@ -41,6 +47,13 @@ export default async function handler(req, res) {
             lowRiskThreshold,
             isHighRiskCancelled,
             highRiskThreshold,
+            isHoldTimeoutEnabled,
+            timeoutDays,
+            timeoutAction,
+            autoReminderEmails,
+            reminderFrequency,
+            maximumReminders,
+            updatedAt: new Date(),
           },
         },
         { upsert: true }
