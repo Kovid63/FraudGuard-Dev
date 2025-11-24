@@ -36,6 +36,12 @@ export default function Home() {
           destination: `/?shop=${shop}&host=${host}` || `/dashboard?shop=${shop}&host=${host}`,
         });
 
+        const automationLink = AppLink.create(app, {
+          label: 'Automation',
+          destination: `/?shop=${shop}&host=${host}` || `/automation?shop=${shop}&host=${host}`,
+        });
+
+
         const accessLink = AppLink.create(app, {
           label: 'Access',
           destination: `/access?shop=${shop}&host=${host}`,
@@ -47,7 +53,7 @@ export default function Home() {
         });
 
         const navigationMenu = NavigationMenu.create(app, {
-          items: [dashboardLink, accessLink, settingsLink],
+          items: [dashboardLink, automationLink, accessLink, settingsLink],
           active: dashboardLink,
         });
 
